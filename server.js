@@ -1,14 +1,16 @@
 var express = require('express');
 var app = express();
 
-var mongo = require('mongodb').MongoClient();
+var mongo = require('mongodb').MongoClient;
 
 var nofavicon = require('express-no-favicons');
 var port = process.env.PORT || 8080;
 
 var request = require('request');
 var util = require('util');
+var urlencode = require('urlencode'); 
 
+var mongoUri = process.env.MONGO_URI;
 var FLICKR_API_KEY = process.env.FLICKR_API_KEY;
 var FLICKR_SECRET_KEY = process.env.FLICKR_SECRET_KEY;
 var FLICKR_ENDPOINT = 'https://api.flickr.com/services/rest/';
@@ -32,11 +34,7 @@ app.get('/api/imagesearch/:terms', function(req, res) {
 	var apiCall = request(getUrl, function(err, response, body) {
 		if (err) throw err;
 		var photos = JSON.parse(body).photos.photo;
-		//var deepPhotos = util.inspect(photos, {showHidden: false, depth: null});
-		// ... for each photo in deepPhotos, get a bunch of its properties and assemble a response json.
-		// flickrUrl() is good for getting the urls.
 		console.log(photos);
-		//console.log(photos.length);
 		var resultArr = [];
 		photos.forEach(function(item) {
 			var photoObj = {
@@ -46,9 +44,43 @@ app.get('/api/imagesearch/:terms', function(req, res) {
 			}
 			resultArr.push(photoObj);
 		});
+
 		res.send(resultArr);
+
+		// Save the latest query to the "recent" collection.
+		mongo.connect(mongoUri, function(err, db) {
+			var collection = db.collection('recent');
+			var doc = {
+				// TODO: Not totally sure the urlencode is doing what I want it to.
+				term: urlencode.decode(searchTerms),
+				when: new Date().toISOString()
+			};
+			collection.insert(doc);
+			console.log(doc);
+		})
 	});
 });
+
+app.get('/api/latest/imagesearch', function(req, res) {
+	mongo.connect(mongoUri, function(err, db) {
+		console.log("it's connecting");
+		var collection = db.collection('recent');
+		var cursor = collection.find({}, { _id: 0 });
+		cursor.sort({when: -1});
+		var result = [];
+		cursor.each(function(err, doc) {
+			if (err) throw err;
+			if (doc == null ) {
+				res.send(result);
+				db.close();
+			}
+			if (doc != null) {
+				result.push(doc);
+				console.log(result);
+			}
+		});
+	})
+})
 
 app.listen(port, function() {
 	console.log('Express app listening on port ' + port);
