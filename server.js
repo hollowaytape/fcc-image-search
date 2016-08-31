@@ -27,9 +27,9 @@ app.use(nofavicon());
 
 app.get('/api/imagesearch/:terms', function(req, res) {
 	var searchTerms = req.params.terms;
-	var offset = req.query.offset;
+	var offset = req.query.offset || 1;
 
-	var getUrl = FLICKR_ENDPOINT + '?method=flickr.photos.search&api_key=' + FLICKR_API_KEY + '&text=' + searchTerms + "&format=json" + "&nojsoncallback=1";
+	var getUrl = FLICKR_ENDPOINT + '?method=flickr.photos.search&api_key=' + FLICKR_API_KEY + '&text=' + searchTerms + "&page=" + offset + "&format=json&nojsoncallback=1";
 
 	var apiCall = request(getUrl, function(err, response, body) {
 		if (err) throw err;
